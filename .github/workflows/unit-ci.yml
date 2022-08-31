@@ -1,0 +1,49 @@
+name: Unit tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  main:
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {
+            os: ubuntu-latest,
+            cc: clang-12, cxx: clang++-12,
+          }
+        build_type: [ RelWithDebInfo ]
+        stl_implementation: [ libstdc++ ]
+        sanitizer: [ ASAN, TSAN, UBSAN, OFF ]
+
+    name: "${{ matrix.config.os }} / ${{ matrix.sanitizer }}"
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure CMake
+        run:
+          mkdir build &&
+          cd build &&
+          cmake ..
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DRT_SANITIZER=${{ matrix.sanitizer }}
+          -DBUILD_TESTING=ON
+          #-DCMAKE_C_COMPILER=${{ matrix.config.cc }}
+          #-DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+        #-DCMAKE_CXX_FLAGS=-stdlib=${{ matrix.stl_implementation }}
+
+      - name: Build
+        run:
+          cmake --build build --config ${{ matrix.build_type }} -j
+
+      - name: Test
+        run:
+          cd build &&
+          ctest --output-on-failure -C ${{ matrix.build_type }} -V
